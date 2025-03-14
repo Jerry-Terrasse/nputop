@@ -360,35 +360,43 @@ def make_process_table(processes_by_npu):
 def make_system_usage_panel(sysinfo):
     """
     构造类似 nvitop 底部的 CPU / MEM / SWP / UPTIME / LOAD AVG 显示
-    采用纯文本行 + 进度条的方式
+    采用直接构造 Text 对象的方式，防止中括号被转义
     """
+    text = Text()
+
     # CPU
     cpu_usage = sysinfo["cpu_percent"]
     cpu_bar = make_bar(cpu_usage, length=5)
     cpu_color = color_for_usage(cpu_usage)
-    cpu_str = f"[bold white]CPU:[/bold white] [{cpu_color}]{cpu_bar} {cpu_usage:.1f}%[/{cpu_color}]"
+    text.append("CPU: ", style="bold white")
+    text.append(f"{cpu_bar} {cpu_usage:.1f}%", style=cpu_color)
+
+    # UPTIME 和 LOAD AVG
+    text.append("   UPTIME: ", style="bold white")
+    text.append(sysinfo["uptime"], style="white")
+    text.append("   (Load Average: ", style="white")
+    text.append(f"{sysinfo['load1']:.2f} ", style="white")
+    text.append(f"{sysinfo['load5']:.2f} ", style="white")
+    text.append(f"{sysinfo['load15']:.2f}", style="white")
+    text.append(")", style="white")
+    text.append("\n")
 
     # MEM
     mem_usage = sysinfo["mem_percent"]
     mem_bar = make_bar(mem_usage, length=25)
     mem_color = color_for_usage(mem_usage)
-    mem_str = f"[bold white]MEM:[/bold white] [{mem_color}]{mem_bar} {mem_usage:.1f}%[/{mem_color}]  USED: {sysinfo['mem_used']:.2f}GiB"
+    text.append("MEM: ", style="bold white")
+    text.append(f"{mem_bar} {mem_usage:.1f}%", style=mem_color)
+    text.append(f"  USED: {sysinfo['mem_used']:.2f}GiB", style="white")
 
     # SWP
     swap_usage = sysinfo["swap_percent"]
     swap_bar = make_bar(swap_usage, length=10)
     swap_color = color_for_usage(swap_usage)
-    swap_str = f"[bold white]SWP:[/bold white] [{swap_color}]{swap_bar} {swap_usage:.1f}%[/{swap_color}]"
+    text.append("   SWP: ", style="bold white")
+    text.append(f"{swap_bar} {swap_usage:.1f}%", style=swap_color)
 
-    # UPTIME
-    uptime_str = f"[bold white]UPTIME:[/bold white] {sysinfo['uptime']}"
-    # LOAD AVG
-    load_str = f"( Load Average:  {sysinfo['load1']:.2f}  {sysinfo['load5']:.2f}  {sysinfo['load15']:.2f} )"
-
-    line1 = f"{cpu_str}   {uptime_str}   {load_str}"
-    line2 = f"{mem_str}   {swap_str}"
-
-    return f"{line1}\n{line2}"
+    return text
 
 ################################################################################
 # 4. 主循环，结合 Live 动态刷新
@@ -426,7 +434,7 @@ def main():
                 Layout(header_table, name="top", size=3),
                 Layout(device_table, name="devices"),
                 Layout(process_table, name="processes"),
-                Layout(Text(sys_usage_text, justify="left"), name="bottom", size=3),
+                # Layout(sys_usage_text, name="bottom", size=3),
                 Layout(name=""),
             )
 
