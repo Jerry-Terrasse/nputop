@@ -6,6 +6,8 @@ import re
 import time
 import math
 import psutil
+import sys
+import select
 from datetime import timedelta
 
 from rich import box
@@ -317,6 +319,12 @@ def make_device_table(devices):
         bar = make_bar(hbm_ratio, length=6)
         usage_str = f"[{color}]{bar} {hbm_ratio:.1f}%[/{color}]"
 
+        # 新增对 AI core 的条形显示
+        ai_percentage = dev["ai_core"]  # 假定该值为百分比
+        ai_color = color_for_usage(ai_percentage)
+        ai_bar = make_bar(ai_percentage, length=6)
+        ai_usage_str = f"[{ai_color}]{ai_bar} {ai_percentage:.1f}%[/{ai_color}]"
+
         table.add_row(
             str(dev["id"]),
             dev["name"],
@@ -325,35 +333,46 @@ def make_device_table(devices):
             f"{dev['power']:.1f}",
             str(dev["temp"]),
             usage_str,
-            str(dev["ai_core"]),
+            ai_usage_str  # 用条形显示替换原来的数字
         )
     return table
 
 def make_process_table(processes_by_npu):
     """
-    生成显示进程信息的表格
+    生成显示进程信息的表格，新增 CPU 使用率统计，并将 Process Name 改为 Command。
     """
     table = Table(
-        # box=box.MINIMAL_DOUBLE_HEAD,
         show_header=True,
-        # title="Processes",
         expand=True,
     )
     table.add_column("NPU", ratio=10)
     table.add_column("PID", ratio=10)
-    table.add_column("Memory(MB)", ratio=20)
-    table.add_column("Process Name", ratio=120)
+    table.add_column("CPU(%)", ratio=15)          # 新增 CPU 使用率列
+    table.add_column("Memory", ratio=20)
+    table.add_column("Command", ratio=120)        # 修改列标题
 
     for npu_id, proc_list in processes_by_npu.items():
         if not proc_list:
-            # 没有进程则跳过或显示空
             continue
         for proc in proc_list:
+            try:
+                pid_int = int(proc["pid"])
+                # 获取进程 CPU 使用率，interval=0.1 快速采样
+                cpu_usage = psutil.Process(pid_int).cpu_percent(interval=0.1)
+            except Exception:
+                cpu_usage = 0.0
+            try:
+                pid_int = int(proc["pid"])
+                cmd_str = psutil.Process(pid_int).cmdline()
+                cmd_str = " ".join(cmd_str)
+            except Exception:
+                cmd_str = proc["name"]
             table.add_row(
                 str(npu_id),
                 proc["pid"],
-                str(proc["mem"]),
-                proc["name"],
+                f"{cpu_usage:.1f}",
+                f"{proc['mem']}MB",
+                cmd_str
             )
     return table
 
@@ -423,7 +442,7 @@ def main():
             device_table = make_device_table(devices)
             height = device_table.row_count + 4
 
-            # 进程表
+            # 进程表（新增 CPU 列和 Command 列）
             process_table = make_process_table(processes_by_npu)
 
             # 底部系统使用率
