@@ -421,6 +421,7 @@ def main():
 
             # 设备信息表
             device_table = make_device_table(devices)
+            height = device_table.row_count + 4
 
             # 进程表
             process_table = make_process_table(processes_by_npu)
@@ -428,14 +429,16 @@ def main():
             # 底部系统使用率
             sys_usage_text = make_system_usage_panel(sysinfo)
 
+            empty_panel = Panel(Text(""), box=box.SIMPLE)
+
             # 修改布局：将各 section 紧挨排列，剩余空间放在最下面
             layout = Layout(name="root")
             layout.split_column(
                 Layout(header_table, name="top", size=3),
-                Layout(device_table, name="devices"),
+                Layout(device_table, name="devices", size=height),
                 Layout(process_table, name="processes"),
                 # Layout(sys_usage_text, name="bottom", size=3),
-                Layout(name=""),
+                # Layout(empty_panel),
             )
 
             live.update(layout)
