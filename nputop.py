@@ -27,7 +27,10 @@ def get_npu_smi_output():
     调用 npu-smi 命令并返回其输出文本
     """
     try:
-        output = subprocess.check_output(["ssh", "ict_raw", "npu-smi", "info"], text=True)
+        cmd = ["npu-smi", "info"]
+        cmd = ["ssh", "ict_raw", "npu-smi", "info"]
+        cmd = ["bash", "example.sh"]
+        output = subprocess.check_output(cmd, text=True)
         return output
     except Exception as e:
         console.print(f"[red]执行 npu-smi 出错：{e}[/red]")
