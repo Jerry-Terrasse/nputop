@@ -295,19 +295,19 @@ def make_device_table(devices):
     生成显示 NPU 概要信息的表格
     """
     table = Table(
-        box=box.MINIMAL_DOUBLE_HEAD,
+        # box=box.MINIMAL_DOUBLE_HEAD,
         show_header=True,
         # title="NPU Overview",
         expand=True,
     )
-    table.add_column("NPU")
-    table.add_column("Name")
-    table.add_column("Bus-Id")
-    table.add_column("Health")
-    table.add_column("Power(W)")
-    table.add_column("Temp(°C)")
-    table.add_column("HBM Usage(MB)")
-    table.add_column("AICore(%)")
+    table.add_column("NPU", ratio=10)
+    table.add_column("Name", ratio=10)
+    table.add_column("Bus-Id", ratio=20)
+    table.add_column("Health", ratio=15)
+    table.add_column("Power(W)", ratio=15)
+    table.add_column("Temp(°C)", ratio=15)
+    table.add_column("HBM Usage(MB)", ratio=40)
+    table.add_column("AICore(%)", ratio=35)
 
     for dev in devices:
         hbm_ratio = 0
@@ -334,15 +334,15 @@ def make_process_table(processes_by_npu):
     生成显示进程信息的表格
     """
     table = Table(
-        box=box.MINIMAL_DOUBLE_HEAD,
+        # box=box.MINIMAL_DOUBLE_HEAD,
         show_header=True,
-        title="Processes",
+        # title="Processes",
         expand=True,
     )
-    table.add_column("NPU")
-    table.add_column("PID")
-    table.add_column("Process Name")
-    table.add_column("Memory(MB)")
+    table.add_column("NPU", ratio=10)
+    table.add_column("PID", ratio=10)
+    table.add_column("Memory(MB)", ratio=20)
+    table.add_column("Process Name", ratio=120)
 
     for npu_id, proc_list in processes_by_npu.items():
         if not proc_list:
@@ -352,8 +352,8 @@ def make_process_table(processes_by_npu):
             table.add_row(
                 str(npu_id),
                 proc["pid"],
+                str(proc["mem"]),
                 proc["name"],
-                str(proc["mem"])
             )
     return table
 
@@ -420,19 +420,15 @@ def main():
             # 底部系统使用率
             sys_usage_text = make_system_usage_panel(sysinfo)
 
-            # 将上面几个组件组合起来
-            # 可以使用 Group 或 Layout，自行决定排版方式
+            # 修改布局：将各 section 紧挨排列，剩余空间放在最下面
             layout = Layout(name="root")
             layout.split_column(
-                Layout(name="top", size=3),
-                Layout(name="devices", ratio=3),
-                Layout(name="processes", ratio=2),
-                Layout(name="bottom", size=3),
+                Layout(header_table, name="top", size=3),
+                Layout(device_table, name="devices"),
+                Layout(process_table, name="processes"),
+                Layout(Text(sys_usage_text, justify="left"), name="bottom", size=3),
+                Layout(name=""),
             )
-            layout["top"].update(header_table)
-            layout["devices"].update(device_table)
-            layout["processes"].update(process_table)
-            layout["bottom"].update(Text(sys_usage_text, justify="left"))
 
             live.update(layout)
             time.sleep(2)
