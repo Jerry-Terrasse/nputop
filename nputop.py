@@ -16,7 +16,7 @@ from rich.table import Table
 from rich.panel import Panel
 from rich.text import Text
 from rich.bar import Bar
-from rich.progress import Progress, TaskProgressColumn, RenderableColumn
+from rich.progress import Progress, TaskProgressColumn, RenderableColumn, TextColumn
 from rich.console import Console
 from rich.layout import Layout
 
@@ -253,7 +253,7 @@ def get_system_info():
 
     boot_time = psutil.boot_time()
     uptime_seconds = time.time() - boot_time
-    uptime_str = str(timedelta(seconds=int(uptime_seconds)))  # 形如 "12 days, 1:23:45"
+    uptime_days = uptime_seconds // (24 * 3600)
 
     return {
         "cpu_percent": cpu_percent,
@@ -264,7 +264,7 @@ def get_system_info():
         "load1": load1,
         "load5": load5,
         "load15": load15,
-        "uptime": uptime_str,
+        "uptime": uptime_days,
     }
 
 def color_for_usage(usage: float) -> str:
@@ -288,18 +288,21 @@ def make_top_header(version_str: str = "NPU-SMI TUI 1.0.0"):
     仿照 nvitop 的顶栏（仅示意），可放置 Driver Version / npu-smi 版本等信息
     """
     # 为了模仿 nvitop 的 ASCII 边框，这里用 Table + box.SQUARE_DOUBLE_HEAD
-    table = Table(box=box.SQUARE_DOUBLE_HEAD, show_header=False, expand=True)
+    table = Table(box=box.DOUBLE, show_header=False, expand=True)
     table.add_column()
     table.add_row(version_str)
     return table
 
-def make_bar(ratio: float):
-    color = color_for_usage(ratio)
+def make_bar(ratio: float, desc: str = "", color: str = None):
+    color = color_for_usage(ratio) if color is None else color
     bar_end = ratio * 100
-    bar = Progress(
+    cols = [
+        TextColumn(desc, style=f"bold {color}") if desc else None,
         RenderableColumn(Bar(size=100, begin=0, end=bar_end, color=color)),
-        TaskProgressColumn(),
-    )
+        TaskProgressColumn(style=f"bold {color}", justify="center", text_format="{task.percentage:4.1f}%"),
+    ]
+    cols = [item for item in cols if item is not None]
+    bar = Progress(*cols)
     bar.add_task("", total=100, completed=bar_end, color=color)
     return bar
 
@@ -385,44 +388,38 @@ def make_process_table(processes_by_npu):
 
 def make_system_usage_panel(sysinfo):
     """
-    构造类似 nvitop 底部的 CPU / MEM / SWP / UPTIME / LOAD AVG 显示
-    采用直接构造 Text 对象的方式，防止中括号被转义
+    重构后的系统信息面板，使用无边框的 2 行 3 列表格实现：
+    第一行：CPU 使用率 bar | UPTIME | LOAD AVG（load1/load5/load15）
+    第二行：MEM 使用率 bar | MEM USED | SWP bar
     """
-    text = Text()
+    table = Table(show_header=False, box=None, expand=True)
+    table.add_column(justify="center", ratio=7)
+    table.add_column(justify="right", ratio=3)
+    table.add_column(justify="left", ratio=5)
 
-    # CPU
-    cpu_usage = sysinfo["cpu_percent"]
-    cpu_bar = make_bar(cpu_usage)
-    cpu_color = color_for_usage(cpu_usage)
-    text.append("CPU: ", style="bold white")
-    text.append(f"{cpu_bar} {cpu_usage:.1f}%", style=cpu_color)
+    # 第一行数据
+    cpu_color = "bright_cyan"
+    cpu_usage = sysinfo["cpu_percent"] / 100.
+    cpu_bar = make_bar(cpu_usage, desc="[ CPU: ", color=cpu_color)
+    uptime = f"UPTIME: {sysinfo['uptime']:.1f} days ]"
+    uptime = Text(uptime, style=f"bold {cpu_color}")
+    load1, load5, load15 = sysinfo["load1"], sysinfo["load5"], sysinfo["load15"]
+    load_avg = f"Load Average: {load1:.2f} {load5:.2f} {load15:.2f}"
+    load_avg = Text(load_avg, style=f"bold white")
 
-    # UPTIME 和 LOAD AVG
-    text.append("   UPTIME: ", style="bold white")
-    text.append(sysinfo["uptime"], style="white")
-    text.append("   (Load Average: ", style="white")
-    text.append(f"{sysinfo['load1']:.2f} ", style="white")
-    text.append(f"{sysinfo['load5']:.2f} ", style="white")
-    text.append(f"{sysinfo['load15']:.2f}", style="white")
-    text.append(")", style="white")
-    text.append("\n")
+    # 第二行数据
+    mem_color = "orchid1"
+    mem_usage = sysinfo["mem_percent"] / 100.
+    mem_bar = make_bar(mem_usage, desc="[ MEM: ", color=mem_color)
+    mem_used = f"USED: {sysinfo['mem_used']:.2f}GiB ]"
+    mem_used = Text(mem_used, style=f"bold {mem_color}")
+    swap_usage = sysinfo["swap_percent"] / 100.
+    swap_bar = make_bar(swap_usage, desc="SWP: ", color="blue")
 
-    # MEM
-    mem_usage = sysinfo["mem_percent"]
-    mem_bar = make_bar(mem_usage)
-    mem_color = color_for_usage(mem_usage)
-    text.append("MEM: ", style="bold white")
-    text.append(f"{mem_bar} {mem_usage:.1f}%", style=mem_color)
-    text.append(f"  USED: {sysinfo['mem_used']:.2f}GiB", style="white")
+    table.add_row(cpu_bar, uptime, load_avg)
+    table.add_row(mem_bar, mem_used, swap_bar)
 
-    # SWP
-    swap_usage = sysinfo["swap_percent"]
-    swap_bar = make_bar(swap_usage)
-    swap_color = color_for_usage(swap_usage)
-    text.append("   SWP: ", style="bold white")
-    text.append(f"{swap_bar} {swap_usage:.1f}%", style=swap_color)
-
-    return text
+    return table
 
 ################################################################################
 # 4. 主循环，结合 Live 动态刷新
@@ -464,8 +461,8 @@ def main():
             layout.split_column(
                 Layout(header_table, name="top", size=3),
                 Layout(device_table, name="devices", size=height),
+                Layout(sys_usage_text, name="bottom", size=3),
                 Layout(process_table, name="processes"),
-                # Layout(sys_usage_text, name="bottom", size=3),
                 # Layout(empty_panel),
             )
             # live.stop()
