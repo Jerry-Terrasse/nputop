@@ -326,23 +326,6 @@ def make_device_table(devices):
         hbm_ratio = 0
         if dev["hbm_total"] > 0:
             hbm_ratio = dev["hbm_used"] / dev["hbm_total"]
-        # color = color_for_usage(hbm_ratio)
-        # bar = make_bar(hbm_ratio, length=6)
-        # bar_end = hbm_ratio * 100
-        # bar = Bar(size=100, begin=0, end=50, color=color)
-        # usage_str must be 5 chars long
-        # usage_str = f"{bar_end:4.1f}%" if bar_end <= 99. else " MAX"
-        # usage_layout = Layout(name="usage")
-        # usage_layout.split_row(
-        #     bar,
-        #     Panel(Text(usage_str, style=color), name="usage_text"),
-        # )
-        # bar = Progress(
-        #     # BarColumn(style="progress.download"),
-        #     RenderableColumn(Bar(size=100, begin=0, end=bar_end, color=color)),
-        #     TaskProgressColumn(),
-        # )
-        # bar.add_task("HBM", total=100, completed=bar_end, color=color)
         mem_bar = make_bar(hbm_ratio)
         ai_percentage = dev["ai_core"]
         ai_bar = make_bar(ai_percentage)
