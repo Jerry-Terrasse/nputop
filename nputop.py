@@ -111,9 +111,17 @@ def parse_device_section(output: str):
         # 拆分 line2
         fields2 = [f.strip() for f in line2.split("|") if f.strip()]
         # fields2[0] => "0", fields2[1] => "0000:C1:00.0", fields2[2] => "0           0    / 0          3043 / 32768"
+        # OR: fields2[2] => "0           0    / 0          30431/ 32768"
         chip = fields2[0]
         bus_id = fields2[1]
-        tokens_line2 = fields2[2].split()
+        tokens_line2_tmp = fields2[2].split()
+        tokens_line2 = []
+        for token in tokens_line2_tmp:
+            if token.endswith("/") and len(token) > 1:
+                tokens_line2.append(token[:-1])
+                tokens_line2.append("/")
+            else:
+                tokens_line2.append(token)
         # 例: ["0", "0", "/", "0", "3043", "/", "32768"]
         ai_core = 0
         mem_used = 0
