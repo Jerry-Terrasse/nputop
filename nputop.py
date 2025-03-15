@@ -20,6 +20,14 @@ from rich.layout import Layout
 
 console = Console()
 
+exception_triggered = False
+print_exception = console.print_exception
+def print_exception_wrapper(*args, **kwargs):
+    global exception_triggered
+    exception_triggered = True
+    print_exception(*args, **kwargs)
+console.print_exception = print_exception_wrapper
+
 ################################################################################
 # 1. 调用 npu-smi 并解析输出
 ################################################################################
@@ -32,10 +40,11 @@ def get_npu_smi_output():
         cmd = ["npu-smi", "info"]
         cmd = ["ssh", "ict_raw", "npu-smi", "info"]
         cmd = ["bash", "example.sh"]
+        cmd = ["bash", "info.sh"]
         output = subprocess.check_output(cmd, text=True)
         return output
     except Exception as e:
-        console.print(f"[red]执行 npu-smi 出错：{e}[/red]")
+        console.print_exception(show_locals=True)
         return ""
 
 def parse_device_section(output: str):
@@ -105,8 +114,8 @@ def parse_device_section(output: str):
             try:
                 huge_used = int(tokens_power[2])
                 huge_total = int(tokens_power[4])
-            except:
-                pass
+            except Exception as e:
+                console.print_exception(show_locals=True)
 
         # 拆分 line2
         fields2 = [f.strip() for f in line2.split("|") if f.strip()]
@@ -135,8 +144,8 @@ def parse_device_section(output: str):
                 mem_total = int(tokens_line2[3])
                 hbm_used = int(tokens_line2[4])
                 hbm_total = int(tokens_line2[6])
-            except:
-                pass
+            except Exception as e:
+                console.print_exception(show_locals=True)
 
         device = {
             "id": npu_id,
@@ -367,13 +376,15 @@ def make_process_table(processes_by_npu):
                 pid_int = int(proc["pid"])
                 # 获取进程 CPU 使用率，interval=0.1 快速采样
                 cpu_usage = psutil.Process(pid_int).cpu_percent(interval=0.1)
-            except Exception:
+            except Exception as e:
+                # console.print_exception(show_locals=True)
                 cpu_usage = 0.0
             try:
                 pid_int = int(proc["pid"])
                 cmd_str = psutil.Process(pid_int).cmdline()
                 cmd_str = " ".join(cmd_str)
-            except Exception:
+            except Exception as e:
+                # console.print_exception(show_locals=True)
                 cmd_str = proc["name"]
             table.add_row(
                 str(npu_id),
@@ -430,7 +441,9 @@ def make_system_usage_panel(sysinfo):
 ################################################################################
 
 def main():
-    with Live(refresh_per_second=1, screen=False) as live:
+    global exception_triggered
+
+    with Live(refresh_per_second=1, screen=False, auto_refresh=False) as live:
         while True:
             # 解析 npu-smi
             output = get_npu_smi_output()
@@ -468,7 +481,12 @@ def main():
                 # Layout(empty_panel),
             )
 
-            live.update(layout)
+            if not exception_triggered:
+                live.update(layout)
+                live.refresh()
+            else:
+                time.sleep(10)
+                exception_triggered = False
             time.sleep(2)
 
 if __name__ == "__main__":
