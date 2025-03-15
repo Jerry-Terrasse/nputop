@@ -15,7 +15,9 @@ from rich.live import Live
 from rich.table import Table
 from rich.panel import Panel
 from rich.text import Text
-from rich.console import Console, Group
+from rich.bar import Bar
+from rich.progress import Progress, TaskProgressColumn, RenderableColumn
+from rich.console import Console
 from rich.layout import Layout
 
 console = Console()
@@ -265,24 +267,6 @@ def get_system_info():
         "uptime": uptime_str,
     }
 
-def make_bar(usage: float, length: int = 10) -> str:
-    """
-    生成类似 nvitop 的使用率条 (partial blocks)。usage 为 0~100之间的数值
-    length 表示进度条的宽度（以“整块”计）
-    """
-    # 先转换为 [0,1]
-    frac = min(max(usage / 100.0, 0), 1)
-    blocks = "▏▎▍▌▋▊▉█"
-    total = int(length * 8 * frac)  # 一格=8分
-    full = total // 8
-    rem = total % 8
-    bar = "█" * full
-    if rem > 0:
-        bar += blocks[rem - 1]
-    # 不足的用空格补齐
-    bar = bar.ljust(length, " ")
-    return bar
-
 def color_for_usage(usage: float) -> str:
     """
     根据使用率返回一个颜色名称，简单分级：
@@ -309,6 +293,16 @@ def make_top_header(version_str: str = "NPU-SMI TUI 1.0.0"):
     table.add_row(version_str)
     return table
 
+def make_bar(ratio: float):
+    color = color_for_usage(ratio)
+    bar_end = ratio * 100
+    bar = Progress(
+        RenderableColumn(Bar(size=100, begin=0, end=bar_end, color=color)),
+        TaskProgressColumn(),
+    )
+    bar.add_task("", total=100, completed=bar_end, color=color)
+    return bar
+
 def make_device_table(devices):
     """
     生成显示 NPU 概要信息的表格
@@ -331,16 +325,27 @@ def make_device_table(devices):
     for dev in devices:
         hbm_ratio = 0
         if dev["hbm_total"] > 0:
-            hbm_ratio = dev["hbm_used"] / dev["hbm_total"] * 100
-        color = color_for_usage(hbm_ratio)
-        bar = make_bar(hbm_ratio, length=6)
-        usage_str = f"[{color}]{bar} {hbm_ratio:.1f}%[/{color}]"
-
-        # 新增对 AI core 的条形显示
-        ai_percentage = dev["ai_core"]  # 假定该值为百分比
-        ai_color = color_for_usage(ai_percentage)
-        ai_bar = make_bar(ai_percentage, length=6)
-        ai_usage_str = f"[{ai_color}]{ai_bar} {ai_percentage:.1f}%[/{ai_color}]"
+            hbm_ratio = dev["hbm_used"] / dev["hbm_total"]
+        # color = color_for_usage(hbm_ratio)
+        # bar = make_bar(hbm_ratio, length=6)
+        # bar_end = hbm_ratio * 100
+        # bar = Bar(size=100, begin=0, end=50, color=color)
+        # usage_str must be 5 chars long
+        # usage_str = f"{bar_end:4.1f}%" if bar_end <= 99. else " MAX"
+        # usage_layout = Layout(name="usage")
+        # usage_layout.split_row(
+        #     bar,
+        #     Panel(Text(usage_str, style=color), name="usage_text"),
+        # )
+        # bar = Progress(
+        #     # BarColumn(style="progress.download"),
+        #     RenderableColumn(Bar(size=100, begin=0, end=bar_end, color=color)),
+        #     TaskProgressColumn(),
+        # )
+        # bar.add_task("HBM", total=100, completed=bar_end, color=color)
+        mem_bar = make_bar(hbm_ratio)
+        ai_percentage = dev["ai_core"]
+        ai_bar = make_bar(ai_percentage)
 
         table.add_row(
             str(dev["id"]),
@@ -349,8 +354,8 @@ def make_device_table(devices):
             dev["health"],
             f"{dev['power']:.1f}",
             str(dev["temp"]),
-            usage_str,
-            ai_usage_str  # 用条形显示替换原来的数字
+            mem_bar,
+            ai_bar,
         )
     return table
 
@@ -404,7 +409,7 @@ def make_system_usage_panel(sysinfo):
 
     # CPU
     cpu_usage = sysinfo["cpu_percent"]
-    cpu_bar = make_bar(cpu_usage, length=5)
+    cpu_bar = make_bar(cpu_usage)
     cpu_color = color_for_usage(cpu_usage)
     text.append("CPU: ", style="bold white")
     text.append(f"{cpu_bar} {cpu_usage:.1f}%", style=cpu_color)
@@ -421,7 +426,7 @@ def make_system_usage_panel(sysinfo):
 
     # MEM
     mem_usage = sysinfo["mem_percent"]
-    mem_bar = make_bar(mem_usage, length=25)
+    mem_bar = make_bar(mem_usage)
     mem_color = color_for_usage(mem_usage)
     text.append("MEM: ", style="bold white")
     text.append(f"{mem_bar} {mem_usage:.1f}%", style=mem_color)
@@ -429,7 +434,7 @@ def make_system_usage_panel(sysinfo):
 
     # SWP
     swap_usage = sysinfo["swap_percent"]
-    swap_bar = make_bar(swap_usage, length=10)
+    swap_bar = make_bar(swap_usage)
     swap_color = color_for_usage(swap_usage)
     text.append("   SWP: ", style="bold white")
     text.append(f"{swap_bar} {swap_usage:.1f}%", style=swap_color)
@@ -480,6 +485,8 @@ def main():
                 # Layout(sys_usage_text, name="bottom", size=3),
                 # Layout(empty_panel),
             )
+            # live.stop()
+            # breakpoint()
 
             if not exception_triggered:
                 live.update(layout)
