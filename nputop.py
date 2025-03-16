@@ -340,6 +340,7 @@ def make_device_table(devices):
             mem_bar,
             ai_bar,
             style=row_color,
+            end_section=True,
         )
     return table
 
@@ -381,7 +382,8 @@ def make_process_table(processes_by_npu):
                 proc["pid"],
                 f"{cpu_usage:.1f}",
                 f"{proc['mem']}MB",
-                cmd
+                cmd,
+                end_section=True,
             )
     return table
 
@@ -445,7 +447,9 @@ def main():
 
             # 设备信息表
             device_table = make_device_table(devices)
-            height = device_table.row_count + 4
+            print(f"device_table.row_count: {device_table.row_count}")
+            # height = device_table.row_count + 4
+            height = (device_table.row_count+1) * 2 + 1
 
             # 进程表（新增 CPU 列和 Command 列）
             process_table = make_process_table(processes_by_npu)
