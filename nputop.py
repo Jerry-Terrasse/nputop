@@ -314,12 +314,12 @@ def make_device_table(devices):
     )
     table.add_column("NPU", ratio=10)
     table.add_column("Name", ratio=10)
-    table.add_column("Bus-Id", ratio=30)
+    table.add_column("Bus-Id", ratio=25)
     table.add_column("Health", ratio=15)
     table.add_column("Power(W)", ratio=15)
     table.add_column("Temp(°C)", ratio=15)
     table.add_column("HBM Usage(MB)", ratio=35)
-    table.add_column("AICore(%)", ratio=30)
+    table.add_column("AICore(%)", ratio=35)
 
     for dev in devices:
         hbm_ratio = 0
