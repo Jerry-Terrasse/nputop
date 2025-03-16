@@ -354,9 +354,9 @@ def make_process_table(processes_by_npu):
         expand=True,
     )
     table.add_column("NPU", ratio=10)
-    table.add_column("PID", ratio=10)
+    table.add_column("PID", ratio=15)
     table.add_column("CPU(%)", ratio=15)          # 新增 CPU 使用率列
-    table.add_column("Memory", ratio=20)
+    table.add_column("Memory", ratio=15)
     table.add_column("Command", ratio=120)        # 修改列标题
 
     for npu_id, proc_list in processes_by_npu.items():
@@ -377,12 +377,13 @@ def make_process_table(processes_by_npu):
             except Exception as e:
                 # console.print_exception(show_locals=True)
                 cmd_str = proc["name"]
+            cmd = Text(cmd_str, no_wrap=True)
             table.add_row(
                 str(npu_id),
                 proc["pid"],
                 f"{cpu_usage:.1f}",
                 f"{proc['mem']}MB",
-                cmd_str
+                cmd
             )
     return table
 
