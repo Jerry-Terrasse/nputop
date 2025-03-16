@@ -268,13 +268,9 @@ def get_system_info():
     }
 
 def color_for_usage(usage: float) -> str:
-    """
-    根据使用率返回一个颜色名称，简单分级：
-    <40% -> green, <70% -> yellow, >=70% -> red
-    """
-    if usage < 0.4:
+    if usage < 0.7:
         return "green"
-    elif usage < 0.7:
+    elif usage < 0.9:
         return "yellow"
     else:
         return "red"
