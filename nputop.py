@@ -447,7 +447,6 @@ def main():
 
             # 设备信息表
             device_table = make_device_table(devices)
-            print(f"device_table.row_count: {device_table.row_count}")
             # height = device_table.row_count + 4
             height = (device_table.row_count+1) * 2 + 1
 
