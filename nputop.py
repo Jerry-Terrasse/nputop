@@ -372,8 +372,8 @@ def make_process_table(processes_by_npu):
                 cpu_usage = 0.0
             try:
                 pid_int = int(proc["pid"])
-                cmd_str = psutil.Process(pid_int).cmdline()
-                cmd_str = " ".join(cmd_str)
+                executable, *args = psutil.Process(pid_int).cmdline()
+                cmd_str = f"{executable}\n    {' '.join(args)}"
             except Exception as e:
                 # console.print_exception(show_locals=True)
                 cmd_str = proc["name"]
