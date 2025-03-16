@@ -430,6 +430,8 @@ def main():
     global exception_triggered
 
     with Live(refresh_per_second=1, screen=False, auto_refresh=False) as live:
+        refresh_interval = 1.0
+        last_time = 0
         while True:
             # 解析 npu-smi
             output = get_npu_smi_output()
@@ -471,12 +473,15 @@ def main():
             # breakpoint()
 
             if not exception_triggered:
+                now_time = time.time()
+                # print(refresh_interval - (now_time - last_time))
+                time.sleep(max(0, refresh_interval - (now_time - last_time)))
                 live.update(layout)
                 live.refresh()
+                last_time = time.time()
             else:
                 time.sleep(10)
                 exception_triggered = False
-            time.sleep(2)
 
 if __name__ == "__main__":
     main()
