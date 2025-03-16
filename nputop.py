@@ -272,9 +272,9 @@ def color_for_usage(usage: float) -> str:
     根据使用率返回一个颜色名称，简单分级：
     <40% -> green, <70% -> yellow, >=70% -> red
     """
-    if usage < 40:
+    if usage < 0.4:
         return "green"
-    elif usage < 70:
+    elif usage < 0.7:
         return "yellow"
     else:
         return "red"
@@ -330,8 +330,9 @@ def make_device_table(devices):
         if dev["hbm_total"] > 0:
             hbm_ratio = dev["hbm_used"] / dev["hbm_total"]
         mem_bar = make_bar(hbm_ratio)
-        ai_percentage = dev["ai_core"]
+        ai_percentage = dev["ai_core"] / 100.
         ai_bar = make_bar(ai_percentage)
+        row_color = color_for_usage(max(hbm_ratio, ai_percentage))
 
         table.add_row(
             str(dev["id"]),
@@ -342,6 +343,7 @@ def make_device_table(devices):
             str(dev["temp"]),
             mem_bar,
             ai_bar,
+            style=row_color,
         )
     return table
 
